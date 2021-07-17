@@ -1,0 +1,631 @@
+---
+title: "Dimensionality Reduction"
+author: "Mark Ngendo"
+date: "7/17/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Relevance
+
+The link to the dataset can be found here : http://bit.ly/CarreFourDataset
+
+The column description is as follows:
+
+* Invoice id: Computer generated sales slip invoice identification number
+
+* Branch: Branch of supercenter (3 branches are available identified by A, B and C).
+
+* City: Location of supercenters
+
+* Customer type: Type of customers, recorded by Members for customers using member card and Normal for without member card.
+
+* Gender: Gender type of customer
+
+* Product line: General item categorization groups - Electronic accessories, Fashion accessories, Food and beverages, Health and beauty, Home and lifestyle, Sports and travel
+
+* Unit price: Price of each product in $
+
+* Quantity: Number of products purchased by customer
+
+* Tax: 5% tax fee for customer buying
+
+* Total: Total price including tax
+
+* Date: Date of purchase (Record available from January 2019 to March 2019)
+
+* Time: Purchase time (10am to 9pm)
+
+* Payment: Payment used by customer for purchase (3 methods are available – Cash, Credit card and Ewallet)
+
+* COGS: Cost of goods sold
+
+* Gross margin percentage: Gross margin percentage
+
+* Gross income: Gross income on a scale of 1000
+
+* Rating: Customer stratification rating on their overall shopping experience (On a scale of 1 to 10)
+
+## Libraries Needed
+```{r}
+library(ggplot2)
+library(Rtsne)
+library(FSelector)
+library(e1071)
+library(CatEncoders)
+library(lattice)
+library(corrplot)
+library(caret)
+```
+
+## Data Reading
+
+```{r loading data}
+
+df <- read.csv("http://bit.ly/CarreFourDataset")
+head(df)
+```
+### Structure of the data
+```{r}
+str(df)
+```
+## Data Cleaning
+```{r}
+# checking for duplicates
+df[duplicated(df), ]
+```
+```{r}
+# checking for missing values
+
+colSums(is.na(df))
+```
+
+
+
+```{r}
+# Accuracy
+
+df$Invoice.ID <- NULL
+df$Branch <- as.factor(df$Branch)
+df$Customer.type <- as.factor(df$Customer.type)
+df$Gender <- as.factor(df$Gender)
+df$Product.line <- as.factor(df$Product.line)
+df$Payment <- as.factor(df$Payment)
+df$Date <- as.Date(df$Date, format = "%m/%d/%y")
+
+```
+
+## Exploaratory Data Analysis
+
+### Univariate Analysis
+
+```{r}
+# creating a mode function
+mode <- function(x){
+  uniqx <- unique(x)
+  uniqx[which.max(tabulate(match(x, uniqx)))]
+}
+```
+
+#### Branch
+
+```{r}
+
+# Visualization
+ggplot(df, aes(Branch)) +
+  geom_bar(stat="count") +
+  labs(title="Branches Distribution") +
+  theme_classic()
+```
+
+Branch distribution is roughly equal
+
+#### Gender
+```{r}
+# Visualization
+ggplot(df, aes(Gender)) +
+  geom_bar(stat="count")
+```
+
+
+The gender distribution in the dataset is balanced.
+
+#### Customer type
+```{r}
+# visualization
+ggplot(df, aes(Customer.type)) +
+  geom_bar()
+```
+
+The customer types were balanced in terms of distribution.
+
+#### Product Line
+```{r}
+# visualization
+ggplot(df, aes(Product.line)) +
+  geom_bar()
+```
+ Fashion Accessories and, Food and Beverage tie for the most bought categories but the distribution does
+ not suggest an imbalance in general.
+ 
+#### Unit Price
+```{r}
+# Mean
+uprice.mean <- mean(df$Unit.price)
+uprice.mean
+
+# Mode
+uprice.mode <- mode(df$Unit.price)
+uprice.mode
+
+# Median
+uprice.median <- median(df$Unit.price)
+uprice.median
+
+# Standard Deviation
+uprice.sd <- sd(df$Unit.price)
+uprice.sd
+
+# Kurtosis
+uprice.kurt <- kurtosis(df$Unit.price)
+uprice.kurt
+
+# SKewness
+uprice.skew <- skewness(df$Unit.price)
+uprice.skew
+
+# Range
+uprice.range <- range(df$Unit.price)
+uprice.range
+
+# Visualization
+ggplot(df, aes(Unit.price)) +
+  geom_boxplot(outlier.colour = "red")
+```
+
+
+#### Quantity
+```{r}
+# mean
+quantity.mean <- mean(df$Quantity)
+quantity.mean
+
+# Mode
+quantity.mode <- mode(df$Quantity)
+quantity.mode
+
+# Median
+quantity.median <- median(df$Quantity)
+quantity.median
+
+# Standard Deviation
+quantity.sd <- sd(df$Quantity)
+quantity.sd
+
+# Range
+quantity.range <- range(df$Quantity)
+quantity.range
+
+# Kurtosis
+quantity.kurt <- kurtosis(df$Quantity)
+quantity.kurt
+
+# Skewness
+quantity.skew <- skewness(df$Quantity)
+quantity.skew
+
+# Quantiles
+quantity.quants <- quantile(df$Quantity)
+quantity.quants
+
+# Visualization
+ggplot(df, aes(Quantity)) +
+  geom_boxplot(outlier.colour = "red")
+```
+
+
+#### Tax
+```{r}
+# mean
+tax.mean <- mean(df$Tax)
+tax.mean
+
+# mode
+tax.mode <- mode(df$Tax)
+tax.mode
+
+# Median
+tax.median <- median(df$Tax)
+tax.median
+
+# Standard Deviation
+tax.sd <- sd(df$Tax)
+tax.sd
+
+# Kurtosis
+tax.kurt <- kurtosis(df$Tax)
+tax.kurt
+
+# Skewness
+tax.skew <- skewness(df$Tax)
+tax.skew
+
+# Range
+tax.range <- range(df$Tax)
+tax.range
+
+# Quantiles
+tax.quantiles <- quantile(df$Tax)
+tax.quantiles
+
+# Visual
+ggplot(df, aes(Tax)) +
+  geom_boxplot(outlier.colour = "red")
+```
+
+#### Date
+```{r}
+# mode
+date.mode <- mode(df$Date)
+date.mode
+
+# median
+date.median <- median(df$Date)
+date.median
+
+# standard deviation
+date.sd <- sd(df$Date)
+date.sd
+
+```
+
+#### Payment
+```{r}
+
+# Mode
+payment.mode <- mode(df$Payment)
+payment.mode
+
+
+
+# visual
+ggplot(df, aes(Payment)) +
+  geom_bar(stat="count")
+```
+
+There is a fair distribution in the payment variable. However, fewer people tend to pay by Credit Card in these stores
+
+#### COGS
+```{r}
+# mean
+cogs.mean <- mean(df$cogs)
+cogs.mean
+
+# mode
+cogs.mode <- mode(df$cogs)
+cogs.mode
+
+# median
+cogs.median <- median(df$cogs)
+cogs.median
+
+# standard deviation
+cogs.sd <- sd(df$cogs)
+cogs.sd
+
+# range
+cogs.range <- range(df$cogs)
+cogs.range
+
+# kurtosis
+cogs.kurt <- kurtosis(df$cogs)
+cogs.kurt
+
+# skewness
+cogs.skew <- skewness(df$cogs)
+cogs.skew
+
+# quantiles
+cogs.quantiles <- quantile(df$cogs)
+cogs.quantiles
+
+# visual
+
+ggplot(df, aes(cogs)) +
+  geom_boxplot(outlier.colour = "red")
+
+```
+
+
+
+#### Gross Income
+```{r}
+gi <- df$gross.income
+
+# mean
+gi.mean <- mean(gi)
+gi.mean
+
+# mode
+gi.mode <- mode(gi)
+gi.mode
+
+# median
+gi.median <- median(gi)
+gi.median
+
+# range 
+gi.range <- range(gi)
+gi.range
+
+# standard deviation
+gi.sd <- sd(gi)
+gi.sd
+
+# kurtosis
+gi.kurt <- kurtosis(gi)
+gi.kurt
+
+# skewness
+gi.skew <- skewness(gi)
+gi.skew
+
+# visual
+ ggplot(df, aes(gross.income)) +
+   geom_boxplot(outlier.colour = "red")
+
+```
+
+
+
+#### Rating
+```{r}
+# mean
+rate.mean <- mean(df$Rating)
+rate.mean
+
+# mode
+rate.mode <- mode(df$Rating)
+rate.mode
+
+# median
+rate.median <- median(df$Rating)
+rate.median
+
+# standard deviation
+rate.sd <- sd(df$Rating)
+rate.sd
+
+# range
+rate.range <- range(df$Rating)
+rate.range
+
+# quantiles
+rate.quantiles <- quantile(df$Rating)
+rate.quantiles
+
+# kurtosis
+rate.kurt <- kurtosis(df$Rating)
+rate.kurt
+
+# skewness
+rate.skew <- skewness(df$Rating)
+rate.skew
+
+# visual
+ggplot(df, aes(Rating)) +
+  geom_boxplot(outlier.colour = "red")
+```
+
+#### Total
+```{r}
+# mean
+total.mean <- mean(df$Total)
+total.mean
+
+# median
+total.median <- median(df$Total)
+total.median
+
+# mode
+total.mode <- mode(df$Total)
+total.mode
+
+# standard deviation
+total.sd <- sd(df$Total)
+total.sd
+
+# range
+total.range <- range(df$Total)
+total.range
+
+# kurtosis
+total.kurt <- kurtosis(df$Total)
+total.kurt
+
+# skewness
+total.skew <- skewness(df$Total)
+total.skew
+
+# quantiles
+total.quantiles <- quantile(df$Total)
+total.quantiles
+
+# visual
+ggplot(df, aes(Total)) +
+  geom_boxplot(outlier.colour = "red" )
+```
+
+
+### Bivariate Analysis
+
+```{r product line vs Rating}
+ggplot(df, aes(x=Product.line, y=Rating)) +
+  geom_point()
+```
+
+The categories are indistinguishable in terms of rating
+
+```{r}
+ggplot(df ,aes(Gender, Rating)) +
+  geom_point()
+```
+
+Rating is equally distributed in terms of gender
+
+```{r Payment}
+ggplot(df, aes(Payment, Rating)) +
+  geom_point()
+```
+
+
+```{r Gross Income vs Rating}
+ggplot(df, aes(gross.income, Rating)) +
+  geom_point()
+```
+
+A lot of shoppers don't earn as much as is evidenced by concentrated points on the lower side of Gross Income. They therefore contribute the most to rating their experiences but it should be noted that high income earners are still distributed around various ratings. The highest earners have a relatively negative experience. 
+
+```{r Customer type vs Rating}
+ggplot(df, aes(Customer.type , Rating)) +
+  geom_point()
+```
+
+Members and non members have equally distributed experiences in the stores.
+
+```{r Tax vs Rating}
+ggplot(df, aes(Tax, Rating)) +
+  geom_point()
+```
+
+There are no discernable facts from the scatter plot above.
+
+```{r Unit Price vs Rating}
+ggplot(df, aes(Unit.price, Rating)) +
+  geom_point()
+```
+
+There is no immediate relationship between Unit Price of items and Ratings
+
+
+```{r Total Price vs Rating}
+ggplot(df, aes(Total, Rating)) +
+  geom_point()
+```
+
+There is no direct relationship between Total price and rating.
+
+
+```{r correlation table}
+
+cor(df[,unlist(lapply(df, is.numeric))])
+```
+The follwing variables show strong correlation:
+
+* Unit Price to Tax and COGS
+* Quantity to Tax and COGS
+* Gross Income to Unit Price, Quantity, Tax, COGS, Total
+
+
+```{r copy of the dataset}
+copy <- df[, -c(8, 9, 12, 14)]
+label <- df[, 14]
+```
+
+
+## APPLICATION OF t-SNE ALGORITHM
+
+```{r Label Encoding categorical columns}
+branch <- LabelEncoder.fit(copy$Branch)
+copy$Branch <- transform(branch, factor(df$Branch))
+
+gender <- LabelEncoder.fit(copy$Gender)
+copy$Gender <- transform(gender, factor(df$Gender))
+
+customer <- LabelEncoder.fit(copy$Customer.type)
+copy$Customer.type <- transform(customer, factor(copy$Customer.type))
+
+product <- LabelEncoder.fit(copy$Product.line)
+copy$Product.line <- transform(product, factor(copy$Product.line))
+
+pay <- LabelEncoder.fit(copy$Payment)
+copy$Payment <- transform(pay, factor(copy$Payment))
+
+```
+
+```{r building the model}
+model <- Rtsne(copy, dims=2, perplexity=30, verbose= TRUE, max_iter=1000)
+summary(model)
+```
+```{r viewing output}
+head(model$Y)
+```
+
+```{r visualizing results}
+
+plot(model$Y, t='p', main="Output of TSNE")
+```
+
+
+## Feature Selection
+
+```{r correlation method}
+corrMat <- cor(copy)
+
+# highly correlated features
+high <- findCorrelation(corrMat, cutoff = .75)
+
+# names of highly correlated features
+
+names(copy[, high])
+```
+
+
+```{r comparison after dropping high}
+# data set without highly correlated variables
+c2 <- copy[-high]
+
+par(mfrow = c(1, 2))
+
+# plotting
+corrplot(corrMat, order = "hclust")
+corrplot(cor(c2), order = "hclust")
+```
+
+
+
+```{r Feature Ranking method}
+# adding Ratings column to copy data set
+
+copy$Rating <- df$Rating
+
+# how different variable score in relation to rating variable
+
+scores <- information.gain(Rating~., copy)
+subset <- cutoff.k(scores, 5)
+
+# Needed features (5)
+as.data.frame(subset)
+```
+
+## Conclusions
+
+
+From the above analysis,  the following variables have been found to be highly correlated:
+
+* Tax
+* Cost of Goods
+* Gross Income
+
+
+Using a Feature Ranking method with Information Gain of all variables being used as a metric of comparison, 
+the following five variables would be the best to use for modeling a regressor with respect to Rating:
+
+* Branch
+* Customer Type
+* Gender
+* Product Line
+* Unit Price
