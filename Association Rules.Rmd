@@ -1,0 +1,82 @@
+---
+title: "Association Rules"
+author: "Mark Ngendo"
+date: "7/17/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Objective
+
+This section will require that you create association rules that will allow you to identify relationships between variables in the dataset. You are provided with a separate dataset that comprises groups of items that will be associated with others. Just like in the other sections, you will also be required to provide insights for your analysis.
+
+## Loading the Libraries
+```{r}
+library(e1071)
+library(arules)
+library(base)
+```
+
+## Reading the data
+```{r loading the data}
+df <- read.transactions("http://bit.ly/SupermarketDatasetII")
+```
+
+
+```{r previewing the data}
+inspect(df[1:5])
+```
+
+
+```{r Summary of the data}
+summary(df)
+```
+
+## Data Exploration
+```{r Frequency of some articles}
+itemFrequency(df[, 5:10], type = "absolute")
+```
+
+
+```{r Chart of Frequencies}
+itemFrequencyPlot(df, topN=15, col="cyan",
+                  main = "Relative Item Frequency Plot",
+                  ylab = "Item Frequency(relative)")
+```
+
+Tea was the most bough article in the data with Water being the lowest in the top 15 artiles.
+
+## Solution Implementation
+```{r Building the Rules}
+model <- apriori(df, parameter = list(supp = 0.001, conf = 0.8))
+model
+```
+
+
+```{r Inspecting the first ten rules}
+inspect(model[1:10])
+```
+
+
+```{r experimental subset of Cream}
+cream <- subset(model, subset=rhs %pin% "cream")
+cream <- sort(cream, by="confidence", decreasing = TRUE)
+
+inspect(cream)
+```
+
+
+For example, if the Supermarket wanted to push the sales of Cream, they would position it strategically close to sections where the above items on the left hand side are sold.
+
+
+```{r Cream accompaniment}
+cream2 <- subset(model, subset = lhs %pin% "cream")
+cream2 <- sort(cream2, by="confidence", decreasing = TRUE)
+
+inspect(cream2)
+```
+
+From this set of rules, it would be easier to recommend products, upon purchase of cream, to consumers. 
