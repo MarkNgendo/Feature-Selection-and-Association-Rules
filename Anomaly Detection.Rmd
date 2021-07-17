@@ -1,0 +1,72 @@
+---
+title: "Anomaly Detection"
+author: "Mark Ngendo"
+date: "7/17/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Libraries
+```{r}
+library(future)
+library(fracdiff)
+library(lmtest)
+library(tseries)
+library(tidyverse)
+library(anomalize)
+library(tibbletime)
+```
+
+
+## Data Reading and Preparation
+```{r}
+df <- read.csv("http://bit.ly/CarreFourSalesDataset")
+```
+
+```{r preiviewing the dataset}
+
+head(df)
+```
+
+```{r structure of data}
+str(df)
+```
+```{r recasting as tibble and dates as dates}
+# reformatting dates and sorting
+df$Date <- as.Date(df$Date, format = "%m/%d/%Y")
+df$Date <- sort(df$Date,  decreasing = FALSE)
+
+# casting as a tibble
+data <- as_tbl_time(df, index = Date)
+
+# getting unique daily entries without multiple entries
+
+data <- data %>%
+  as_period(period = "daily")
+
+# dimensions of data
+dim(data)
+
+```
+## Solution Implementation
+
+```{r without multiple entries in a single day}
+# getting and plotting data for anomaly detection
+
+data %>%
+  time_decompose(Sales) %>%
+  anomalize(remainder) %>%
+  time_recompose() %>%
+  plot_anomalies(time_recomposed = TRUE, ncol = 3, alpha_dots = 0.5)
+```
+
+It is important to note that there may be 1000 entries in the original dataset, but there are only 89 unique days in the data.
+
+
+## Conclusion
+
+There were no anomalies detected in the data.
